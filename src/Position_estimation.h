@@ -42,6 +42,9 @@ class Position : public Encoder
         void makeWaypoint(void);
         void cleanMapFirst(void);
         void resetOdomytry(void);
+        int getCrrentHeading(void);
+        void followWaypoints(void);
+
 };
 
 #endif

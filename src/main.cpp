@@ -33,6 +33,9 @@ const float BASE_SPEED = 50;
 
 void setup() {
   //positionEstimation.Init();
+  //Serial.begin(115200);
+  // Wire.begin();
+  // Wire.setClock(100000ul);
   robot.Init();
   irSensorFront.Init(A11);
   irSensor.Init(A0);
@@ -40,7 +43,7 @@ void setup() {
   Serial1.begin(115200);
 }
 
-uint8_t getID() { //id
+uint8_t getID() { //get the apriltag id
     uint8_t tagCount = camera.getTagCount();
     Serial.println("GET ID");
     if(tagCount) 
@@ -55,9 +58,11 @@ uint8_t getID() { //id
 }
 //see if it's the key which will have an ID of 3
 bool isKey() {
-  if(uint8_t id = getID() == 3) {
-    Serial.print("Key found!");
-    if(garageFound){
+  mqtt.sendMessage("Key", "Looking");
+  Serial.println("Looking for Key");
+  if(getID() == 3) {
+    mqtt.sendMessage("Key", "Found"); 
+       if(garageFound){
       primary = true;
     }else{
       primary = false;
@@ -70,8 +75,10 @@ bool isKey() {
 
 //see if it's the garage whuch will have an ID of 4
 bool isGarage() {
+    mqtt.sendMessage("Garage", "Looking");
+Serial.println("Looking for Garage");
   if(getID() == 4) {
-    Serial.print("Garage found!");
+    mqtt.sendMessage("Garage", "Found");
     garageFound = true;
     if(!keyFound){
       robot.cleanMapFirst();
@@ -86,55 +93,60 @@ bool isGarage() {
 }
 
 void loop() {
-  //positionEstimation.Run();
-  // if(count >= 15){
-  //   robot_state = END;
-  // }
-  if(millis() % 100 == 0){
-        mqtt.sendMessage("Front IR", String(irSensorFront.ReadData()));
-  }
   if(robot.UpdateEncoderCounts()){
     robot.UpdatePose(robot.ReadVelocityLeft(), robot.ReadVelocityRight());
-    //Serial.println(robot.getThetaDeg());
+    mqtt.sendMessage("MQTT Flag", String(millis()));
     switch(robot_state){
+      //The IDLE state is used to allow us to position the romi while it is on, before the task begins. It is also used in debugging
       case IDLE:
+            // Serial.print("IN IDLE");
+            // isKey();
+            // isGarage();
+            // if(garageFound && keyFound && primary){
+            //   // robot_state = ENDPRIMARY;
+            //   Serial.println("endprimary");
+            // }else if(garageFound && keyFound && !primary){
+            //   // robot_state = ENDSECONDARY;
+            //   Serial.println("ENDSECONDARY");
 
-            if(isGarage() && isKey() && primary){
-              robot_state = ENDPRIMARY;
-              Serial.println("endprimary");
-            }else if(isGarage() && isKey() && !primary){
-              robot_state = ENDSECONDARY;
-              Serial.println("ENDSECONDARY");
+            // }else{
+            //   // robot_state = TURN;
+            //   Serial.println("TURN"); 
+            // }  
 
-            }else{
-              robot_state = TURN;
-              Serial.println("TURN"); 
-            }
-
+        //The B button chooses the romi to be the main scout
         if(buttonB.getSingleDebouncedRelease()){
           robot_state = DRIVE_LINE;
           Serial.println("DRIVE_LINE");
         }
+        //The C button designates this romi as an accomplice
         else if(buttonC.getSingleDebouncedRelease()){
           robot_state = REC_MAP;
           Serial.println("REC_MAP");
         }
         break;
 
+        // The DRIVE_LINE case has the romi line follow until it reaches an intersection. 
         case DRIVE_LINE:
 
           if(robot.reachedIntersection()){
             //robot.makeWaypoint();
+
             robot.centerVTC();
             robot.resetOdomytry();
             Serial.println("REACHED INTERSECTION");
-            if(isGarage() && isKey() && primary){
+            //Here the romi checks if the garage or key is in view
+            isGarage();
+            isKey();
+            //Here the romi checks if the end condition has been reached and which order the garage and key were found.
+            if(garageFound && keyFound && primary){
               robot_state = ENDPRIMARY;
               Serial.println("endprimary");
-            }else if(isGarage() && isKey() && !primary){
+            }else if(garageFound && keyFound && !primary){
               robot_state = ENDSECONDARY;
               Serial.println("ENDSECONDARY");
 
+            //If the task has not been complete: we must continue the maze and call the turn function.
             }else{
               robot_state = TURN;
               Serial.println("TURN"); 
@@ -142,10 +154,15 @@ void loop() {
             // count++;
           }else{
             robot.lineFollow(BASE_SPEED);
-
+            isGarage();
+            isKey();
           }
         break;
 
+        /**
+         * The TURN case begins the logic necessary to navigate every part of the maze. By turning left whenever possible we can ensure we 
+         * view every wall. 
+         */
         case TURN:
         /*
           Check ultrasonic at intersections to see if it's "too close"
@@ -155,7 +172,7 @@ void loop() {
                 if the ultrasonic says there's a wall there, turn right again
 
         */
-       //if nop wall on left
+       //if no wall on left
         if(abs(irSensor.ReadData()) >= TOO_CLOSE){
             //Open on left
             robot_state = OPEN_LEFT;
@@ -173,31 +190,39 @@ void loop() {
                     Serial.println("DRIVE_LINE");
 
         }
-          // if(robot.turnToNextline(-100)){
-          //   robot_state = DRIVE_LINE;
-          // }
-
         break;
+        //open left case --> this is for when there is no wall to the left of the romi
         case OPEN_LEFT:
+          //we turn left
+              isGarage();
+              isKey();
             if(robot.turnToNextline(75)){
-            if(isGarage() && isKey() && primary){
-              robot_state = ENDPRIMARY;
-            }else if(isGarage() && isKey() && !primary){
-              robot_state = ENDSECONDARY;
-            }else{
-              robot_state = DRIVE_LINE;
-              Serial.println("DRIVE_LINE");
-            }
+              //we check for the garage and key and primary ->
+
+              if(garageFound && keyFound && primary){
+                robot_state = ENDPRIMARY;
+              }else if(garageFound && keyFound && !primary){
+                robot_state = ENDSECONDARY;
+              }else{
+                robot_state = DRIVE_LINE;
+                Serial.println("DRIVE_LINE");
+              }
 
 
             }
         break;
+        /**
+         * The CLOSED_LEFT case is called when the left IR sensor detects a wall on the left. But there still could be a wall in front of us,
+         * so the robot will check in front of it using the front IR. If there is a wall there, the robot will turn right, otherwise it will continue.
+        */
         case CLOSED_LEFT:
+              isGarage();
+              isKey();
           if(robot.turnToNextline(-75)){
 
-            if(isGarage() && isKey() && primary){
+            if(garageFound && keyFound && primary){
               robot_state = ENDPRIMARY;
-            }else if(isGarage() && isKey() && !primary){
+            }else if(garageFound && keyFound && !primary){
               robot_state = ENDSECONDARY;
             }else if(abs(irSensorFront.ReadData()) <= TOO_CLOSE){
               //closed on front
@@ -211,12 +236,15 @@ void loop() {
             }
           }
         break;
+        //closed front case --> if the robot has a wall in front of it
         case CLOSED_FRONT:
+          //we turn right
+              isGarage();
+              isKey();
           if(robot.turnToNextline(-75)){
-
-            if(isGarage() && isKey() && primary){
+            if(garageFound && keyFound && primary){
               robot_state = ENDPRIMARY;
-            }else if(isGarage() && isKey() && !primary){
+            }else if(garageFound && keyFound && !primary){
               robot_state = ENDSECONDARY;
             }else{
              robot_state = DRIVE_LINE;
@@ -269,54 +297,5 @@ void loop() {
   
 
 
-  /*
-  state(accomplice)
-  accomplice(){
-    
-  }
-  state at 00 in reall position and 00 in struct
-  line follow untill intersection is reached
-  look at next index in map
-  if x increments positively, turn to x positive direction and contine
-  if x incements negatively, turn to x negative dirction and move
-  if y increments positively, turn to y positive direction and move
-  if y increments negatively, turn to y negative direction and move
-  if it's the same coordinate do nothing
-  comppare current position with 
-  
-  for(int i = 0; i < 54; i++){
-    if(robot.reachedIntersection())
-      robot.centerVTC();
-      float xCurrent = accompliceMap.xCoords[i];
-      float yCurrent = accompliceMap.yCoords[i];
-      float xPast = accompliceMap.xCoords[i-1];
-      float yPast = accompliceMap.yCoords[i-1];
-      if (xcurrent !== xPast){
-        if(yCurrent > yPast){
-          robot.turnToNextLine(90);
-        }
-        else{
-          robot.turnToNextLine(-90);
-        }
-      }
-      else if(yCurrent == yPast){
-        if(xCurrent > xPast){
-          robot.turnToNextLine(0);
-        }
-        else{
-          robot.turnToNextLine(180);
-        }
-      }
-      else{
-        Serial.println("ERROR");
-      }
 
-  }
-  else{
-    robot.lineFollow(45);
-  }
-  
-  
-  
-  */
 }

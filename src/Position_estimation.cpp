@@ -266,3 +266,132 @@ void Position::resetOdomytry(){
 //assume x and y unit are equivelent to 40cm -> 400mm
   //if(robot.getTheta())
 }
+
+
+// rounds current heading to hearest cardnall directin
+// returns 0,90,180,270
+int Position::getCrrentHeading(){
+
+    float heading = getThetaDeg();
+
+    if (heading > 315 || heading < 45){
+        return 0;
+    }
+
+    else if (heading > 45 && heading < 135){
+        return 90;
+    }
+
+    else if (heading > 135 && heading < 225){
+        return 180;
+    }
+
+    else if (heading > 225 && heading < 315){
+        return 270;
+    }
+
+    else{
+        return false;
+    }
+
+}
+
+// void Position::followWaypoints(){
+    
+//     coordinates accompliceMap;
+
+//     //fill witharbatry path
+//     accompliceMap.xCoords[0] = 0;
+//     accompliceMap.yCoords[0] = 0;
+
+//     accompliceMap.xCoords[1] = 1;
+//     accompliceMap.yCoords[1] = 0;
+
+//     accompliceMap.xCoords[2] = 1;
+//     accompliceMap.yCoords[2] = 1;
+
+//     accompliceMap.xCoords[3] = 1;
+//     accompliceMap.yCoords[3] = 2;
+
+//     accompliceMap.xCoords[4] = 2;
+//     accompliceMap.yCoords[4] = 2;
+
+//     accompliceMap.xCoords[5] = 3;
+//     accompliceMap.yCoords[5] = 2;
+
+//     accompliceMap.xCoords[6] = 4;
+//     accompliceMap.yCoords[6] = 2;
+
+//   // state(accomplice)
+//   // accomplice(){
+    
+//   // }
+//   // state at 00 in reall position and 00 in struct
+//   // line follow untill intersection is reached
+//   // look at next index in map
+//   // if x increments positively, turn to x positive direction and contine
+//   // if x incements negatively, turn to x negative dirction and move
+//   // if y increments positively, turn to y positive direction and move
+//   // if y increments negatively, turn to y negative direction and move
+//   // if it's the same coordinate do nothing
+//   // comppare current position with 
+//   //robot.ac
+
+//   for(int i = 0; i < 54; i++){
+//     if(this.reachedIntersection())
+//       centerVTC();
+//       float xCurrent = accompliceMap.xCoords[i];
+//       float yCurrent = accompliceMap.yCoords[i];
+//       float xNext = accompliceMap.xCoords[i+1];
+//       float yNext = accompliceMap.yCoords[i+1];
+//       float heading = getCurrentheading();
+
+//       if (xcurrent !== xPast){
+//         if(xNext > xCurrent){
+//           //move in positive x directoin
+//          targetHeading = 0;
+//          int t = (targetHeading - heading)/90;
+
+//         }
+//         else if (xNext < xCurrent){
+//           //move in negative x direction
+//           targetHeading = 180;
+//         }
+//       }
+//       else if(yCurrent !== yNext){
+//         if(yCurrent > yPast){
+//           //move in positive y direction
+//           //robot.turnToNextLine(0);
+//         }
+//         else if (yCurrent < yNext){
+//           //move in negative y direction
+//           robot.turnToNextLine(180);
+//         }
+//         else{
+//           robot.turnToNextLine(0);
+//         }
+//       else if(yCurrent == yPast){
+//         if(xCurrent > xPast){
+//           robot.turnToNextLine(0);
+//         }
+//         else{
+//           robot.turnToNextLine(180);
+//         }
+//       }
+//       else{
+//         Serial.println("ERROR");
+//       }
+
+
+//     int t = (targetHeading - heading)/90;
+//     for(int i = 0, i <= t, i++){
+//       robot.turnToNextLine(90*(t/abs(t)));
+//     }   
+
+
+//   }
+//   else{
+//     robot.lineFollow(45);
+//   }
+  
+// }
