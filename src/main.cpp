@@ -4,38 +4,44 @@
 #include "line_follow.h"
 #include "IR_sensor.h"
 #include "Sonar_sensor.h"
+#include "SerialM.h"
 
 //Behaviors positionEstimation;
 
 
 Romi32U4ButtonB buttonB;
+Romi32U4ButtonA buttonA;
 LineFollow robot; 
-enum ROBOT_STATE {IDLE, SEARCH, DRIVE_LINE, TURN, OPEN_LEFT, CLOSED_LEFT, CLOSED_FRONT};
+enum ROBOT_STATE {IDLE, SEARCH, DRIVE_LINE, TURN, OPEN_LEFT, CLOSED_LEFT, CLOSED_FRONT, END};
 ROBOT_STATE robot_state = IDLE; //initial state: IDLE
+
+//enum ACOMPLACESTATE_STATE {IDLE, DRIVE};
+//ACCOMPLICE_STATE accomplice_state = IDLE;
+
 int count = 0;
 
 
+SerialM mqtt;
 IRsensor irSensor;
 IRsensor irSensorFront;
 SonarSensor sonarSensor;
-const float TOO_CLOSE = 20, TOO_CLOSE_BUT_THIS_TIME_WITH_THE_IR_SENSOR = 15; //cm
+const float TOO_CLOSE = 40, TOO_CLOSE_BUT_THIS_TIME_WITH_THE_IR_SENSOR = 15; //cm
+
 
 void setup() {
   //positionEstimation.Init();
   robot.Init();
   irSensorFront.Init(A11);
   irSensor.Init(A0);
+  Serial1.begin(115200);
 }
 
 
 
 void loop() {
   //positionEstimation.Run();
-  if(millis() % 10 == 0){
-  Serial.print("Front: ");
-  irSensorFront.PrintData();
-  Serial.print("Side: ");
-  irSensor.PrintData();
+  if(count >= 27){
+    robot_state = END;
   }
   if(robot.UpdateEncoderCounts()){
     robot.UpdatePose(robot.ReadVelocityLeft(), robot.ReadVelocityRight());
@@ -55,6 +61,7 @@ void loop() {
             robot.centerVTC();
             robot.resetOdomytry();
             robot_state = TURN;
+            count++;
                       Serial.println("TURN");
 
           }else{
@@ -77,13 +84,13 @@ void loop() {
 
         */
        //if nop wall on left
-        if(irSensor.ReadData() >= TOO_CLOSE){
+        if(abs(irSensor.ReadData()) >= TOO_CLOSE){
             //Open on left
             robot_state = OPEN_LEFT;
                       Serial.println("OPEN_LEFT");
 
         //if wall is to front of robot
-        }else if(irSensorFront.ReadData() <= TOO_CLOSE){
+        }else if(abs(irSensorFront.ReadData()) <= TOO_CLOSE){
           //Closed on left
           robot_state = CLOSED_LEFT;
                     Serial.println("CLOSED_LEFT");
@@ -108,8 +115,7 @@ void loop() {
         break;
         case CLOSED_LEFT:
           if(robot.turnToNextline(-75)){
-            irSensorFront.PrintData();
-            if(irSensorFront.ReadData() <= TOO_CLOSE){
+            if(abs(irSensorFront.ReadData()) <= TOO_CLOSE){
               //closed on front
               robot_state = CLOSED_FRONT;
                         Serial.println("CLOSED_FRONT");
@@ -128,6 +134,23 @@ void loop() {
 
           }
         break;
+        case END:
+        if(count){
+          robot.printMap();
+            robot.cleanMapFirst();
+        robot.printMap();
+         for(int i = 0; i < 54; i++){
+            Serial.print("X: ");
+            Serial.print(robot.getXCoordinate(i));
+            mqtt.sendMessage("X" + String(i), String(robot.getXCoordinate(i)));
+            Serial.print(" Y: ");
+            Serial.println(robot.getYCoordinate(i));
+            mqtt.sendMessage("Y" + String(i), String(robot.getYCoordinate(i)));
+        }
+        count = 0;
+        }
+
+        break;
         if(buttonB.getSingleDebouncedRelease()){
           robot.Stop();
           robot_state = IDLE;
@@ -137,5 +160,8 @@ void loop() {
     }
 
   }
+
+
+  //state(accomplice)
 
 }

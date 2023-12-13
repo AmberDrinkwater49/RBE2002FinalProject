@@ -35,6 +35,12 @@ void Position::Init(void)
     myCoordinates.yCoords[currentCoordinate] = 0;
     currentCoordinate++;
 }
+float Position::getXCoordinate(int i){
+    return myCoordinates.xCoords[i];
+}
+float Position::getYCoordinate(int i){
+    return myCoordinates.yCoords[i];
+}
 void Position::makeWaypoint(void){
     if(currentCoordinate < coordinateListSize){
         myCoordinates.xCoords[currentCoordinate] = x;
