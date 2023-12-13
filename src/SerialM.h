@@ -5,11 +5,12 @@
 
 class SerialM{
     private:
-        String serString1 = "";
+        
     public:
         void sendMessage(const String & topic, const String & message);
         bool checkSerial1(void);
         String receivedString(void);
+        String serString1 = "";
 };
 
 #endif

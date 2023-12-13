@@ -8,7 +8,7 @@ Romi32U4Motors motors;
 //Encoder MagneticEncoder; 
 //Position odometry;
 //Position theoretical;
-
+float baseSpeed = 75;
 void SpeedController::setEfforts(int left, int right)
 {
     motors.setEfforts(left, right);
@@ -40,7 +40,7 @@ boolean SpeedController::Turn(int degree, int direction)
 
     while(abs(abs(count_turn) - abs(ReadEncoderCountLeft())) <= turns)
     {      
-        setEfforts(-(direction*50),(direction*50));  
+        setEfforts(-(direction*baseSpeed),(direction*baseSpeed));  
         if(UpdateEncoderCounts()){
         UpdatePose(ReadVelocityLeft(), ReadVelocityRight());
         //Serial.println("loopiong infinetly");

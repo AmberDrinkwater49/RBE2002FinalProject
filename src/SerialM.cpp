@@ -28,6 +28,7 @@
         {
             Serial.print("Rec'd:\t");
             Serial.print(serString1);
+            return serString1;
             serString1 = "";
         }
         else{

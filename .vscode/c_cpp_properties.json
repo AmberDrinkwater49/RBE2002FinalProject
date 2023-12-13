@@ -10,6 +10,7 @@
             "includePath": [
                 "C:/Users/griff/Downloads/RBE2002FinalProject/include",
                 "C:/Users/griff/Downloads/RBE2002FinalProject/src",
+                "C:/Users/griff/Downloads/RBE2002FinalProject/.pio/libdeps/a-star32U4/openmv-apriltags/src",
                 "C:/Users/griff/Downloads/RBE2002FinalProject/.pio/libdeps/a-star32U4/wpi-32u4-library/src",
                 "C:/Users/griff/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
                 "C:/Users/griff/.platformio/packages/framework-arduino-avr/cores/arduino",
@@ -26,6 +27,7 @@
                 "path": [
                     "C:/Users/griff/Downloads/RBE2002FinalProject/include",
                     "C:/Users/griff/Downloads/RBE2002FinalProject/src",
+                    "C:/Users/griff/Downloads/RBE2002FinalProject/.pio/libdeps/a-star32U4/openmv-apriltags/src",
                     "C:/Users/griff/Downloads/RBE2002FinalProject/.pio/libdeps/a-star32U4/wpi-32u4-library/src",
                     "C:/Users/griff/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
                     "C:/Users/griff/.platformio/packages/framework-arduino-avr/cores/arduino",

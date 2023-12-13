@@ -23,6 +23,7 @@ struct coordinates{
     float xCoords[coordinateListSize] = {0};
     float yCoords[coordinateListSize] = {0};
 };
+
 coordinates myCoordinates;
 
 void Position::Init(void)
