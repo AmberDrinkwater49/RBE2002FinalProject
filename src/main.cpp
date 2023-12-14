@@ -20,14 +20,14 @@ Romi32U4ButtonA buttonA;
 LineFollow robot; 
 //ENDPRIMARY means that we found the garage first, and then the key, ENDSECONDARY means we found the key first and then the garage
 enum ROBOT_STATE {IDLE, DRIVE_LINE, TURN, OPEN_LEFT, CLOSED_LEFT, CLOSED_FRONT, ENDPRIMARY, ENDSECONDARY, REC_MAP};
-ROBOT_STATE robot_state = ENDSECONDARY; //initial state: IDLE
+ROBOT_STATE robot_state = IDLE; //initial state: IDLE
 
 //enum ACOMPLACESTATE_STATE {IDLE, DRIVE};
 //ACCOMPLICE_STATE accomplice_state = IDLE;
 
 //These boolean values store the status of whether the garage or key has been found, primary keeps track of which was found first.
 bool garageFound = false, keyFound = false, primary;
-
+bool firstPieceOfShitJustWork = true;
 SerialM mqtt;
 IRsensor irSensor;
 IRsensor irSensorFront;
@@ -48,6 +48,10 @@ void setup() {
   irSensorFront.Init(A11);
   irSensor.Init(A0);
   Serial1.begin(115200);
+  digitalWrite(0, HIGH);
+  delay(100);
+  Serial1.println("test" + String(':') + "test");
+
 }
 
 /**
@@ -105,13 +109,16 @@ void isGarage() {
 
 void loop() {
 //First the robot updates its pose to be used in later calculations
-        Serial1.println("test" + String(':') + "test");
-
+  
+  if(firstPieceOfShitJustWork){
         mqtt.sendMessage("CC", String(4));
         for(int i = 0; i < 5; i++){
             mqtt.sendMessage("X" + String(i), String(i));
             mqtt.sendMessage("Y" + String(i), String(i));
         }
+    firstPieceOfShitJustWork = false;
+  }
+
   if(robot.UpdateEncoderCounts()){
     robot.UpdatePose(robot.ReadVelocityLeft(), robot.ReadVelocityRight());
     
@@ -119,12 +126,16 @@ void loop() {
       //The IDLE state is used to allow us to position the romi while it is on, before the task begins. It is also used in debugging
       case IDLE:
         //The B button chooses the romi to be the main scout
+        if(mqtt.checkSerial1()){
+          Serial.println(mqtt.serString1);
+          mqtt.serString1 = "";
+        }
         if(buttonB.getSingleDebouncedRelease()){
           mqtt.sendMessage("RS", "DRIVE LINE");
           robot_state = DRIVE_LINE;
         }
         //The C button designates this romi as an accomplice
-        else if(buttonC.getSingleDebouncedRelease()){
+        else if(buttonA.getSingleDebouncedRelease()){
           mqtt.sendMessage("RS", "REC_MAP");
           robot_state = REC_MAP;
         }
@@ -289,14 +300,15 @@ void loop() {
         }
         case REC_MAP:
         //if(mqtt.serString1)
-        String xCoord[54];
-        String yCoord[54];
-        while(mqtt.checkSerial1()){
-          test = test + mqtt.serString1;
+        //String xCoord[54];
+        //String yCoord[54];
+        if(mqtt.checkSerial1()){
+          Serial.println(mqtt.serString1);
+          mqtt.serString1 = "";
         }
-        if(!test.equals("")){
-          Serial.println(test);
-        }
+        //if(!test.equals("")){
+        //  Serial.println(test);
+        //}
         /*
         int num = 0;
         int xNum = 0;
