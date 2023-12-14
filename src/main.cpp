@@ -52,6 +52,7 @@ uint8_t getID() { //get the apriltag id
           return tag.id;
       }
     }
+    return 0;
 }
 //see if it's the key which will have an ID of 3
 void isKey() {
@@ -70,7 +71,7 @@ void isKey() {
 //see if it's the garage whuch will have an ID of 4
 void isGarage() {
     //mqtt.sendMessage("Garage", "Looking");
-  if(getID() == 4) {
+  if(getID() == 1) {
     //mqtt.sendMessage("Garage", "Found");
     garageFound = true;
     if(!keyFound){
@@ -84,8 +85,10 @@ void isGarage() {
 }
 
 void loop() {
-  mqtt.sendMessage("ROBOT STATE", String(robot_state));
-  Serial1.println("Robot State" + String(':') + String(robot_state));
+  // if(millis() % 2000){
+  //   mqtt.sendMessage("IRS", String(irSensor.ReadData()));
+  //   mqtt.sendMessage("IRF", String(irSensorFront.ReadData()));
+  // }
   if(robot.UpdateEncoderCounts()){
     robot.UpdatePose(robot.ReadVelocityLeft(), robot.ReadVelocityRight());
     switch(robot_state){
@@ -108,10 +111,12 @@ void loop() {
 
         //The B button chooses the romi to be the main scout
         if(buttonB.getSingleDebouncedRelease()){
+          mqtt.sendMessage("RS", "DRIVE LINE");
           robot_state = DRIVE_LINE;
         }
         //The C button designates this romi as an accomplice
         else if(buttonC.getSingleDebouncedRelease()){
+          mqtt.sendMessage("RS", "REC_MAP");
           robot_state = REC_MAP;
         }
         break;
@@ -125,16 +130,23 @@ void loop() {
             robot.centerVTC();
             robot.resetOdomytry();
             //Here the romi checks if the garage or key is in view
+            float now = millis();
+            while(millis() <= now + 3000){
             isGarage();
             isKey();
+            }
+
             //Here the romi checks if the end condition has been reached and which order the garage and key were found.
             if(garageFound && keyFound && primary){
+              mqtt.sendMessage("RS", "ENDPRIMARY");
               robot_state = ENDPRIMARY;
             }else if(garageFound && keyFound && !primary){
+              mqtt.sendMessage("RS", "ENDSECONDARY");
               robot_state = ENDSECONDARY;
 
             //If the task has not been complete: we must continue the maze and call the turn function.
             }else{
+              mqtt.sendMessage("RS", "TURN");
               robot_state = TURN;
             }
             // count++;
@@ -164,14 +176,17 @@ void loop() {
        //if no wall on left
         if(abs(irSensor.ReadData()) >= TOO_CLOSE){
             //Open on left
+            mqtt.sendMessage("RS", "OPEN_LEFT");
             robot_state = OPEN_LEFT;
 
         //if wall is to front of robot
         }else if(abs(irSensorFront.ReadData()) <= TOO_CLOSE){
           //Closed on left
+          mqtt.sendMessage("RS", "CLOSED_LEFT");
           robot_state = CLOSED_LEFT;
         }else{
           //Closed on left open on front
+          mqtt.sendMessage("RS", "DRIVE_LINE");
           robot_state = DRIVE_LINE;
         }
         break;
@@ -184,10 +199,13 @@ void loop() {
               //we check for the garage and key and primary ->
 
               if(garageFound && keyFound && primary){
+                mqtt.sendMessage("RS", "ENDPRIMARY");
                 robot_state = ENDPRIMARY;
               }else if(garageFound && keyFound && !primary){
+                mqtt.sendMessage("RS", "ENDSECONDARY");
                 robot_state = ENDSECONDARY;
               }else{
+                mqtt.sendMessage("RS", "DRIVE LINE");
                 robot_state = DRIVE_LINE;
               }
 
@@ -204,13 +222,17 @@ void loop() {
           if(robot.turnToNextline(-1 * BASE_SPEED)){
 
             if(garageFound && keyFound && primary){
+              mqtt.sendMessage("RS", "ENDPRIMARY");
               robot_state = ENDPRIMARY;
             }else if(garageFound && keyFound && !primary){
+              mqtt.sendMessage("RS", "ENDSECONDARY");
               robot_state = ENDSECONDARY;
             }else if(abs(irSensorFront.ReadData()) <= TOO_CLOSE){
               //closed on front
+              mqtt.sendMessage("RS", "CLOSED_FRONT");
               robot_state = CLOSED_FRONT;
             }else{
+              mqtt.sendMessage("RS", "DRIVE LINE");
               robot_state = DRIVE_LINE;
             }
           }
@@ -222,13 +244,15 @@ void loop() {
               isKey();
           if(robot.turnToNextline(-1 * BASE_SPEED)){
             if(garageFound && keyFound && primary){
+              mqtt.sendMessage("RS", "ENDPRIMARY");
               robot_state = ENDPRIMARY;
             }else if(garageFound && keyFound && !primary){
+              mqtt.sendMessage("RS", "ENDSECONDARY");
               robot_state = ENDSECONDARY;
             }else{
+             mqtt.sendMessage("RS", "DRIVE LINE");
              robot_state = DRIVE_LINE;
             }
-
 
           }
         break;
@@ -236,24 +260,22 @@ void loop() {
           mqtt.sendMessage("Key Found ", "TRUE");
         break;
         case ENDSECONDARY:
-        if(count){
           robot.printMap();
-            robot.cleanMapFirst();
-        robot.printMap();
+          robot.cleanMapFirst();
+          robot.printMap();
          for(int i = 0; i < 54; i++){
             mqtt.sendMessage("X" + String(i), String(robot.getXCoordinate(i)));
             mqtt.sendMessage("Y" + String(i), String(robot.getYCoordinate(i)));
         }
-        count = 0;
-        }
+        mqtt.sendMessage("RS", "IDLE");
+        robot_state = IDLE;
 
         break;
         
         if(buttonB.getSingleDebouncedRelease()){
           robot.Stop();
+          mqtt.sendMessage("RS", "IDLE");
           robot_state = IDLE;
-          Serial.println("IDLE");
-
         }
         case REC_MAP:
         String result[10];
