@@ -28,6 +28,7 @@ class Position : public Encoder
             float THETA;
         };
         void Init(void);
+        int getCurrentCoordinate(void);
         void UpdatePose(float,float);
         void printMap(void);
         float getXCoordinate(int);

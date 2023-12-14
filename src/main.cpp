@@ -13,24 +13,32 @@ OpenMV camera;
 Romi32U4ButtonC buttonC;
 Romi32U4ButtonB buttonB;
 Romi32U4ButtonA buttonA;
+/**
+ * Note on inheritence:
+ * LineFollow is a child of Speed Controller which is a child of Position Estimation which is a chile of Encoders
+*/
 LineFollow robot; 
 //ENDPRIMARY means that we found the garage first, and then the key, ENDSECONDARY means we found the key first and then the garage
 enum ROBOT_STATE {IDLE, DRIVE_LINE, TURN, OPEN_LEFT, CLOSED_LEFT, CLOSED_FRONT, ENDPRIMARY, ENDSECONDARY, REC_MAP};
-ROBOT_STATE robot_state = IDLE; //initial state: IDLE
+ROBOT_STATE robot_state = ENDSECONDARY; //initial state: IDLE
 
 //enum ACOMPLACESTATE_STATE {IDLE, DRIVE};
 //ACCOMPLICE_STATE accomplice_state = IDLE;
 
-int count = 0;
+//These boolean values store the status of whether the garage or key has been found, primary keeps track of which was found first.
 bool garageFound = false, keyFound = false, primary;
 
 SerialM mqtt;
 IRsensor irSensor;
 IRsensor irSensorFront;
 SonarSensor sonarSensor;
-const float TOO_CLOSE = 30; //cm
-const float BASE_SPEED = 40;
+const float TOO_CLOSE = 30; //cm - This value is used to indicate whether there is a wall to the left or in front of the romi
+const float BASE_SPEED = 40; 
+String test = "";
 
+/**
+ * The setup function is called at startup and sets clocks and ports so that the robot can function
+*/
 void setup() {
   //positionEstimation.Init();
   Serial.begin(115200);
@@ -42,6 +50,9 @@ void setup() {
   Serial1.begin(115200);
 }
 
+/**
+ * GetID searches the camera to find any apriltags and returns the ID that is found, if no april tag is found it returns 0
+*/
 uint8_t getID() { //get the apriltag id
     uint8_t tagCount = camera.getTagCount();
     if(tagCount) 
@@ -54,21 +65,26 @@ uint8_t getID() { //get the apriltag id
     }
     return 0;
 }
-//see if it's the key which will have an ID of 3
+
+/**
+ * isKey() takes the ID from getID() and sees if the ID is a 3, if it is this means that that april tag is the key.
+ * It then turns key found to true, if the garage has been found then we enter the primary ending. 
+*/
 void isKey() {
 //  mqtt.sendMessage("Key", "Looking");
   if(getID() == 3) {
    // mqtt.sendMessage("Key", "Found"); 
-       if(garageFound){
+    if(garageFound){
       primary = true;
-    }else{
-      primary = false;
     }
     keyFound = true;
   }
 }
 
-//see if it's the garage whuch will have an ID of 4
+/**
+ * isGarage() takes the ID from getID() and sees if the ID is a 1, if it is this means that the april tag is the garage.
+ * It then turns garageFound to true, if the key has not been found, the robot transmits the map now. Otherwise, the second ending activates.
+*/
 void isGarage() {
     //mqtt.sendMessage("Garage", "Looking");
   if(getID() == 1) {
@@ -76,39 +92,32 @@ void isGarage() {
     garageFound = true;
     if(!keyFound){
       robot.cleanMapFirst();
-        for(int i = 0; i < 54; i++){
+        mqtt.sendMessage("CC", String(robot.getCurrentCoordinate()-1));
+        for(int i = 0; i <+ robot.getCurrentCoordinate(); i++){
           mqtt.sendMessage("X" + String(i), String(robot.getXCoordinate(i)));
           mqtt.sendMessage("Y" + String(i), String(robot.getYCoordinate(i)));
         }
+    }else{
+      primary = false;
     }
   }
 }
 
 void loop() {
-  // if(millis() % 2000){
-  //   mqtt.sendMessage("IRS", String(irSensor.ReadData()));
-  //   mqtt.sendMessage("IRF", String(irSensorFront.ReadData()));
-  // }
+//First the robot updates its pose to be used in later calculations
+        Serial1.println("test" + String(':') + "test");
+
+        mqtt.sendMessage("CC", String(4));
+        for(int i = 0; i < 5; i++){
+            mqtt.sendMessage("X" + String(i), String(i));
+            mqtt.sendMessage("Y" + String(i), String(i));
+        }
   if(robot.UpdateEncoderCounts()){
     robot.UpdatePose(robot.ReadVelocityLeft(), robot.ReadVelocityRight());
+    
     switch(robot_state){
       //The IDLE state is used to allow us to position the romi while it is on, before the task begins. It is also used in debugging
       case IDLE:
-            // Serial.print("IN IDLE");
-            // isKey();
-            // isGarage();
-            // if(garageFound && keyFound && primary){
-            //   // robot_state = ENDPRIMARY;
-            //   Serial.println("endprimary");
-            // }else if(garageFound && keyFound && !primary){
-            //   // robot_state = ENDSECONDARY;
-            //   Serial.println("ENDSECONDARY");
-
-            // }else{
-            //   // robot_state = TURN;
-            //   Serial.println("TURN"); 
-            // }  
-
         //The B button chooses the romi to be the main scout
         if(buttonB.getSingleDebouncedRelease()){
           mqtt.sendMessage("RS", "DRIVE LINE");
@@ -125,17 +134,14 @@ void loop() {
         case DRIVE_LINE:
 
           if(robot.reachedIntersection()){
-            //robot.makeWaypoint();
-
+            //Here the romi checks if the garage or key is in view
             robot.centerVTC();
             robot.resetOdomytry();
-            //Here the romi checks if the garage or key is in view
             float now = millis();
             while(millis() <= now + 3000){
-            isGarage();
-            isKey();
+              isGarage();
+              isKey();
             }
-
             //Here the romi checks if the end condition has been reached and which order the garage and key were found.
             if(garageFound && keyFound && primary){
               mqtt.sendMessage("RS", "ENDPRIMARY");
@@ -143,15 +149,15 @@ void loop() {
             }else if(garageFound && keyFound && !primary){
               mqtt.sendMessage("RS", "ENDSECONDARY");
               robot_state = ENDSECONDARY;
-
             //If the task has not been complete: we must continue the maze and call the turn function.
             }else{
               mqtt.sendMessage("RS", "TURN");
               robot_state = TURN;
             }
-            // count++;
           }else{
+            //If the robot has not reached an intersection, it will continue following the line it is on
             robot.lineFollow(BASE_SPEED);
+            //While driving the robot checks the walls for the key and garage
             if(millis() % 500){
             isGarage();
             isKey();
@@ -166,11 +172,12 @@ void loop() {
          */
         case TURN:
         /*
-          Check ultrasonic at intersections to see if it's "too close"
-            If too close, check IR to see if we can turn left
+        Summary of logic:
+          Check frontIR at intersections to see if it's "too close"
+            If too close, check leftIR to see if we can turn left
               if we can, turn left
               if we cannot, turn right
-                if the ultrasonic says there's a wall there, turn right again
+                if the frontIR says there's a wall there, turn right again
 
         */
        //if no wall on left
@@ -258,15 +265,18 @@ void loop() {
         break;
         case ENDPRIMARY:
           mqtt.sendMessage("Key Found ", "TRUE");
+          
         break;
         case ENDSECONDARY:
           robot.printMap();
           robot.cleanMapFirst();
           robot.printMap();
-         for(int i = 0; i < 54; i++){
-            mqtt.sendMessage("X" + String(i), String(robot.getXCoordinate(i)));
-            mqtt.sendMessage("Y" + String(i), String(robot.getYCoordinate(i)));
+          mqtt.sendMessage("map/CC", String(robot.getCurrentCoordinate()-1));
+         for(int i = 0; i <+ robot.getCurrentCoordinate(); i++){
+            mqtt.sendMessage("map/X" + String(i), String(robot.getXCoordinate(i)));
+            mqtt.sendMessage("map/Y" + String(i), String(robot.getYCoordinate(i)));
         }
+
         mqtt.sendMessage("RS", "IDLE");
         robot_state = IDLE;
 
@@ -278,19 +288,35 @@ void loop() {
           robot_state = IDLE;
         }
         case REC_MAP:
-        String result[10];
+        //if(mqtt.serString1)
+        String xCoord[54];
+        String yCoord[54];
         while(mqtt.checkSerial1()){
-          Serial.print(mqtt.serString1);
+          test = test + mqtt.serString1;
         }
-            
+        if(!test.equals("")){
+          Serial.println(test);
+        }
+        /*
+        int num = 0;
+        int xNum = 0;
+        int yNum = 0;
+
+        for(int i = 0; i < test.length(); i++){
+          if(test.substring(num, num + 1).equals("X")){
+            xCoord[xNum] = test.substring(num + 2, num + 3);
+            xNum++;
+          }
+          if(test.substring(num, num + 1).equals("Y")){
+            yCoord[yNum] = test.substring(num + 2, num + 3);
+            yNum++;
+          }
+        }
+
+        for(int i = 0; i < sizeof(xCoord); i++){
+          Serial.println(xCoord[i]);
+        }    */  
         break;
     }
-
   }
-
-
-  
-
-
-
 }

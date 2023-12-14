@@ -36,6 +36,9 @@ void Position::Init(void)
     myCoordinates.yCoords[currentCoordinate] = 0;
     currentCoordinate++;
 }
+int Position::getCurrentCoordinate(){
+    return currentCoordinate;
+}
 float Position::getXCoordinate(int i){
     return myCoordinates.xCoords[i];
 }
