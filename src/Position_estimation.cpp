@@ -48,7 +48,6 @@ void Position::makeWaypoint(void){
         myCoordinates.yCoords[currentCoordinate] = y;
         currentCoordinate++;
     }
-
 }
 
 void Position::cleanMapFirst(void){
